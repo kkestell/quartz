@@ -1,0 +1,48 @@
+# Build results
+bin/
+obj/
+[Ll]og/
+TestResults/
+*.log
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.swp
+
+# Rider
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# ASP.NET Core
+wwwroot/dist/
+wwwroot/node_modules/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# dotnet CLI
+*.deps.json
+*.runtimeconfig.json
+
+# Others
+_ReSharper*/
+*.DotSettings.user
+*.dbmdl
+*.bak
+*.backup
+*.cache
+*.tmp
+
