@@ -1,14 +1,10 @@
 namespace Zircon;
 
-// Exception thrown when the VM encounters a fatal error during execution
-
 public class VirtualMachine
 {
     private readonly Bytecode _bytecode;
     private readonly List<CallFrame> _frames = [];
     private readonly Dictionary<int, Value> _globals = new();
-    private readonly List<Value[]?> _heap = [];
-    private readonly Stack<int> _freeList = new();
     private bool _isRunning = true;
     
     public Value? ReturnValue { get; private set; }
@@ -19,8 +15,6 @@ public class VirtualMachine
     public IReadOnlyDictionary<int, Value>? Locals => !IsCallStackEmpty() ? CurrentFrame().Locals : null;
     public IReadOnlyDictionary<int, Value> Globals => _globals;
     public bool IsRunning => _isRunning;
-    public IReadOnlyList<Value[]?> Heap => _heap;
-    public IReadOnlyCollection<int> FreeList => _freeList;
     
     public VirtualMachine(Bytecode bytecode)
     {
@@ -73,7 +67,7 @@ public class VirtualMachine
     // Main execution loop of the Virtual Machine
     public void Run()
     {
-        PushFrame(new CallFrame(0));
+        PushFrame(new CallFrame(0)); // Start execution in the first function
 
         try
         {
@@ -82,11 +76,10 @@ public class VirtualMachine
                 var frame = CurrentFrame();
                 var function = _bytecode.GetFunction(frame.FunctionIndex);
                 
-                // Check if we've reached the end of the function
+                // Check if we've reached the end of the function's code
                 if (frame.InstructionPointer >= function.Instructions.Count)
                 {
-                    // Implicit return when falling off the end of a function
-                    HandleReturn();
+                    HandleReturn(); // Implicitly return from the function
                     continue;
                 }
 
@@ -169,8 +162,7 @@ public class VirtualMachine
                         break;
                         
                     case Opcode.Print: 
-                        var printedValue = PopOperand();
-                        Console.WriteLine(printedValue); 
+                        Console.WriteLine(PopOperand()); 
                         break;
                         
                     // Variable access
@@ -199,61 +191,57 @@ public class VirtualMachine
                         HandleReturn(); 
                         break;
                         
-                    // Memory management
-                    case Opcode.Alloc:
+                    // Array/Object operations
+                    case Opcode.NewArray:
                     {
-                        var sizeValue = PopOperand();
-                        if (sizeValue.Type != ValueType.Number) 
-                            throw new InvalidOperationException("Alloc size must be a number.");
-                        
-                        var size = (int)sizeValue.AsNumber();
-                        if (size < 0) 
-                            throw new InvalidOperationException("Alloc size cannot be negative.");
-
-                        var address = Allocate(size);
-                        PushOperand(Value.HeapRef(address));
+                        var size = (int)PopOperand().AsNumber();
+                        var array = new Value[size];
+                        Array.Fill(array, Value.Nil()); // Initialize with nil
+                        PushOperand(Value.Array(array));
                         break;
                     }
-                    
-                    case Opcode.Store:
+                    case Opcode.GetElement:
+                    {
+                        var index = (int)PopOperand().AsNumber();
+                        var array = PopOperand().AsArray();
+                        if (index < 0 || index >= array.Length) throw new IndexOutOfRangeException();
+                        PushOperand(array[index]);
+                        break;
+                    }
+                    case Opcode.SetElement:
                     {
                         var value = PopOperand();
-                        var indexValue = PopOperand();
-                        var addressValue = PopOperand();
-                        
-                        if (indexValue.Type != ValueType.Number || addressValue.Type != ValueType.HeapRef)
-                            throw new InvalidOperationException("Invalid types for Store operation.");
-                            
-                        var index = (int)indexValue.AsNumber();
-                        var address = addressValue.AsHeapRef();
-                        
-                        HeapStore(address, index, value);
+                        var index = (int)PopOperand().AsNumber();
+                        var array = PopOperand().AsArray();
+                        if (index < 0 || index >= array.Length) throw new IndexOutOfRangeException();
+                        array[index] = value;
                         break;
                     }
-                    
-                    case Opcode.Load:
+                    case Opcode.ArrayLength:
                     {
-                        var indexValue = PopOperand();
-                        var addressValue = PopOperand();
-                        
-                        if (indexValue.Type != ValueType.Number || addressValue.Type != ValueType.HeapRef)
-                            throw new InvalidOperationException("Invalid types for Load operation.");
-
-                        var index = (int)indexValue.AsNumber();
-                        var address = addressValue.AsHeapRef();
-                        
-                        var value = HeapLoad(address, index);
+                        var array = PopOperand().AsArray();
+                        PushOperand(Value.Number(array.Length));
+                        break;
+                    }
+                    case Opcode.NewObject:
+                    {
+                        PushOperand(Value.Object(new Dictionary<string, Value>()));
+                        break;
+                    }
+                    case Opcode.GetProperty:
+                    {
+                        var propertyName = _bytecode.GetConstant(instruction.GetOperand()).AsString();
+                        var obj = PopOperand().AsObject();
+                        var value = obj.TryGetValue(propertyName, out var val) ? val : Value.Nil();
                         PushOperand(value);
                         break;
                     }
-                    
-                    case Opcode.Free:
+                    case Opcode.SetProperty:
                     {
-                        var addressValue = PopOperand();
-                        if (addressValue.Type != ValueType.HeapRef)
-                            throw new InvalidOperationException("Can only free a heap reference.");
-                        
-                        Free(addressValue.AsHeapRef());
+                        var propertyName = _bytecode.GetConstant(instruction.GetOperand()).AsString();
+                        var value = PopOperand();
+                        var obj = PopOperand().AsObject();
+                        obj[propertyName] = value;
                         break;
                     }
                     
@@ -271,16 +259,12 @@ public class VirtualMachine
             // Create a snapshot of the VM state and throw a custom exception
             var framesCopy = _frames.ToList();
             var globalsCopy = new Dictionary<int, Value>(_globals);
-            var heapCopy = _heap.ToList();
-            var freeListCopy = _freeList.ToList();
             
             throw new VirtualMachineException(
                 "A fatal error occurred in the VM during execution.", 
                 ex,
                 framesCopy,
-                globalsCopy,
-                heapCopy,
-                freeListCopy);
+                globalsCopy);
         }
     }
 
@@ -326,7 +310,6 @@ public class VirtualMachine
         var function = _bytecode.GetFunction(funcIndex);
         var newFrame = new CallFrame(funcIndex);
         
-        // Pop arguments from the current frame and set them as locals in the new frame
         // Arguments are popped in reverse order (last argument first)
         for (var i = function.NumArgs - 1; i >= 0; i--)
         {
@@ -354,63 +337,5 @@ public class VirtualMachine
             // This was the main function, store the final return value
             ReturnValue = returnValue;
         }
-    }
-
-    // Allocate a block of memory on the heap
-    private int Allocate(int size)
-    {
-        var block = new Value[size];
-        
-        // Initialize all elements to nil
-        for (var i = 0; i < size; i++)
-        {
-            block[i] = Value.Nil();
-        }
-        
-        // Reuse a freed address if available
-        if (_freeList.Count > 0)
-        {
-            var address = _freeList.Pop();
-            _heap[address] = block;
-            return address;
-        }
-        
-        // Otherwise allocate a new address
-        _heap.Add(block);
-        return _heap.Count - 1;
-    }
-    
-    // Free a block of memory on the heap
-    private void Free(int address)
-    {
-        if (address < 0 || address >= _heap.Count || _heap[address] == null)
-            throw new InvalidOperationException("Invalid address to free.");
-        
-        _heap[address] = null;
-        _freeList.Push(address);
-    }
-    
-    // Store a value at a specific index in a heap-allocated block
-    private void HeapStore(int address, int index, Value value)
-    {
-        if (address < 0 || address >= _heap.Count || _heap[address] is not { } block)
-            throw new InvalidOperationException($"Invalid heap address: {address}");
-            
-        if (index < 0 || index >= block.Length)
-            throw new IndexOutOfRangeException($"Index {index} out of bounds for allocation at address {address} with size {block.Length}.");
-        
-        block[index] = value;
-    }
-    
-    // Load a value from a specific index in a heap-allocated block
-    private Value HeapLoad(int address, int index)
-    {
-        if (address < 0 || address >= _heap.Count || _heap[address] is not { } block)
-            throw new InvalidOperationException($"Invalid heap address: {address}");
-        
-        if (index < 0 || index >= block.Length)
-            throw new IndexOutOfRangeException($"Index {index} out of bounds for allocation at address {address} with size {block.Length}.");
-        
-        return block[index];
     }
 }

@@ -8,12 +8,10 @@ public class IrGenerator
     private readonly List<Statement> _ast;
     private readonly IrProgram _program = new();
     
-    // State for the current function being generated
     private IrFunction _currentFunction = null!;
     private int _tempCounter;
     private int _labelCounter;
 
-    // A simple symbol table for the current scope to map variable names to IR temporary names
     private readonly Dictionary<string, string> _symbols = new();
     private readonly Dictionary<string, IrFunction> _functions = new();
 
@@ -24,7 +22,6 @@ public class IrGenerator
 
     public IrProgram Generate()
     {
-        // First pass: find all function declarations
         PreScan();
 
         // Process top-level statements and the main function body
@@ -90,8 +87,6 @@ public class IrGenerator
         Visit(funcDecl.Body);
     }
 
-    // --- Visitor Dispatch ---
-
     private void Visit(Statement stmt)
     {
         switch (stmt)
@@ -140,8 +135,6 @@ public class IrGenerator
         };
     }
 
-    // --- Statement Visitors ---
-
     private void VisitExpressionStmt(ExpressionStmt stmt)
     {
         Visit(stmt.Expression); // Visit for side effects, discard result
@@ -150,19 +143,16 @@ public class IrGenerator
     private void VisitVarDeclStmt(VarDeclStmt stmt)
     {
         var varName = stmt.Name;
-        // Allocate a new "temporary" to hold the value of this variable.
         var tempName = NewTemp();
         _symbols[varName] = tempName;
 
         if (stmt.Initializer != null)
         {
             var initializerTemp = Visit(stmt.Initializer);
-            // Copy the initializer's result into our variable's temporary.
             Emit(IrOp.Copy, tempName, initializerTemp);
         }
         else
         {
-            // Initialize with a default value (e.g., boolean false)
             Emit(IrOp.LoadConst, tempName, Value.Boolean(false));
         }
     }
@@ -175,7 +165,7 @@ public class IrGenerator
     
     private void VisitBlockStmt(BlockStmt stmt)
     {
-        // For simplicity, we are not handling block-level scoping yet.
+        // TODO: Block scope
         foreach (var statement in stmt.Statements)
         {
             Visit(statement);
@@ -229,8 +219,6 @@ public class IrGenerator
             Emit(IrOp.Return);
         }
     }
-
-    // --- Expression Visitors ---
 
     private string VisitLiteralExpr(LiteralExpr expr)
     {
@@ -361,7 +349,6 @@ public class IrGenerator
         return resultTemp;
     }
 
-    // --- Helpers ---
     private string NewTemp() => $"t{_tempCounter++}";
     private string NewLabel(string hint = "L") => $".{hint}{_labelCounter++}";
     private void Emit(IrOp op, object? arg1 = null, object? arg2 = null, object? arg3 = null)

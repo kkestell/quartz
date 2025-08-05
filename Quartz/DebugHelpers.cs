@@ -4,15 +4,8 @@ using Zircon;
 
 namespace Quartz;
 
-/// <summary>
-/// Provides static methods for printing human-readable representations
-/// of compiler artifacts for debugging purposes.
-/// </summary>
 public static class DebugHelpers
 {
-    /// <summary>
-    /// Prints the entire Abstract Syntax Tree.
-    /// </summary>
     public static void PrintAst(List<Statement> program)
     {
         Console.WriteLine("\n=== Step 1: AST ===\n");
@@ -88,9 +81,6 @@ public static class DebugHelpers
         }
     }
 
-    /// <summary>
-    /// Prints the entire Intermediate Representation program.
-    /// </summary>
     public static void PrintIr(IrProgram program)
     {
         Console.WriteLine("\n=== Step 2: IR ===\n");
@@ -124,9 +114,6 @@ public static class DebugHelpers
         }
     }
 
-    /// <summary>
-    /// Disassembles and prints the bytecode for an entire program.
-    /// </summary>
     public static void Disassemble(Bytecode bytecode)
     {
         Console.WriteLine("\n=== Step 3: Bytecode ===\n");
@@ -140,13 +127,8 @@ public static class DebugHelpers
         var mainFunc = bytecode.GetFunction(0);
         Console.WriteLine("Function __main:");
         DisassembleFunction(mainFunc, constants);
-
-        // In the future, loop through other functions
     }
     
-    /// <summary>
-    /// Disassembles a single function's bytecode instructions.
-    /// </summary>
     public static void DisassembleFunction(Function function, IReadOnlyList<Value> constants)
     {
         for (int i = 0; i < function.Instructions.Count; i++)

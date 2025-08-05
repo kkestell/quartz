@@ -1,11 +1,6 @@
 ﻿using Quartz;
 using Zircon;
 
-/// <summary>
-/// A test harness for the Quartz compiler and Zircon VM.
-/// This program demonstrates the end-to-end compilation and execution
-/// of a program with an if-else statement, and includes debug printing.
-/// </summary>
 public static class Program
 {
     public static void Main(string[] args)
@@ -39,16 +34,13 @@ public static class Program
         };
         DebugHelpers.PrintAst(ast);
 
-        // 2. Lower the AST to Intermediate Representation (IR).
         var irGenerator = new IrGenerator(ast);
         var irProgram = irGenerator.Generate();
         DebugHelpers.PrintIr(irProgram);
 
-        // 3. Generate Zircon bytecode from the IR.
         var bytecodeGenerator = new BytecodeGenerator(irProgram);
         var bytecodeBytes = bytecodeGenerator.Generate();
         
-        // 4. Execute the bytecode in the Zircon VM.
         var tempFile = Path.GetTempFileName();
         try
         {
@@ -61,7 +53,6 @@ public static class Program
             Console.WriteLine("\n=== Step 4: Executing in Zircon VM ===\n");
             vm.Run();
 
-            // 5. Print the result.
             if (vm.ReturnValue != null)
             {
                 Console.WriteLine($"VM exited with return value: {vm.ReturnValue}");

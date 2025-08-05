@@ -46,3 +46,5 @@ _ReSharper*/
 *.cache
 *.tmp
 
+# VS Code
+.vs/

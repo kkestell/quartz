@@ -4,10 +4,6 @@ using ValueType = Zircon.ValueType;
 
 namespace Quartz;
 
-/// <summary>
-/// Generates executable Zircon bytecode from an Intermediate Representation (IR).
-/// This has been updated to support the simplified, single-operand bytecode format.
-/// </summary>
 public class BytecodeGenerator
 {
     private readonly IrProgram _program;
@@ -19,37 +15,26 @@ public class BytecodeGenerator
         _program = program;
     }
 
-    /// <summary>
-    /// Compiles the IR program into a byte array representing a .zbc file.
-    /// </summary>
     public byte[] Generate()
     {
-        // Compile main first, as it's function 0.
         var mainFunction = CompileFunction(_program.MainFunction);
         var functions = new List<Function> { mainFunction };
         
-        // Compile all other functions
         foreach (var irFunc in _program.Functions)
         {
             functions.Add(CompileFunction(irFunc));
         }
 
-        // Write the compiled data to a memory stream.
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream);
 
         WriteHeader(writer);
         WriteConstants(writer);
         WriteFunctions(writer, functions);
-        // Note: Writing classes is removed as they are no longer supported.
 
         return stream.ToArray();
     }
 
-    /// <summary>
-    /// Compiles a single IrFunction into a Zircon.Function.
-    /// This uses a two-pass approach to handle forward jumps by pre-calculating label addresses.
-    /// </summary>
     private Function CompileFunction(IrFunction irFunc)
     {
         var instructions = new List<Instruction>();
@@ -58,7 +43,6 @@ public class BytecodeGenerator
         
         var labelAddresses = new Dictionary<string, ushort>();
 
-        // Helper to get or create a local variable slot for a temporary (e.g., "t0").
         ushort GetLocalSlot(string name)
         {
             if (!locals.TryGetValue(name, out var slot))
@@ -69,7 +53,6 @@ public class BytecodeGenerator
             return slot;
         }
 
-        // --- Pass 1: Discover label addresses by counting the instructions they correspond to. ---
         ushort instructionCount = 0;
         foreach (var ir in irFunc.Body)
         {
@@ -79,7 +62,6 @@ public class BytecodeGenerator
                 continue; // Labels don't generate instructions themselves.
             }
 
-            // Calculate how many instructions this IR op will generate.
             instructionCount += ir.Op switch
             {
                 IrOp.Copy => 2, // GetLocal, SetLocal
@@ -92,7 +74,6 @@ public class BytecodeGenerator
             };
         }
 
-        // --- Pass 2: Generate instructions ---
         foreach (var ir in irFunc.Body)
         {
             if (ir.Op == IrOp.Label) continue;
@@ -166,7 +147,6 @@ public class BytecodeGenerator
             }
         }
         
-        // Ensure the main function halts the VM if no explicit return/halt is present.
         var lastOp = instructions.LastOrDefault()?.Opcode;
         if (irFunc.Name == "__main" && lastOp != Opcode.Return && lastOp != Opcode.Halt)
         {
@@ -227,9 +207,6 @@ public class BytecodeGenerator
         }
     }
 
-    /// <summary>
-    /// Adds a constant to the pool if it doesn't already exist and returns its index.
-    /// </summary>
     private ushort AddConstant(Value value)
     {
         if (!_constantMap.TryGetValue(value, out var index))

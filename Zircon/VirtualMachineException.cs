@@ -6,15 +6,11 @@ public class VirtualMachineException(
     string message,
     Exception innerException,
     IReadOnlyList<CallFrame> callStack,
-    IReadOnlyDictionary<int, Value> globals,
-    IReadOnlyList<Value[]?> heap,
-    IReadOnlyCollection<int> freeList)
+    IReadOnlyDictionary<int, Value> globals)
     : Exception(message, innerException)
 {
     public IReadOnlyList<CallFrame> CallStack { get; } = callStack;
     public IReadOnlyDictionary<int, Value> Globals { get; } = globals;
-    public IReadOnlyList<Value[]?> Heap { get; } = heap;
-    public IReadOnlyCollection<int> FreeList { get; } = freeList;
 
     public override string ToString()
     {
@@ -77,30 +73,6 @@ public class VirtualMachineException(
             foreach (var (key, value) in Globals)
             {
                 state.AppendLine($"  [{key}] = {value}");
-            }
-        }
-        
-        // Heap
-        state.AppendLine("--- Heap ---");
-        if (Heap.Count == 0) 
-            state.AppendLine("  <empty>");
-        else
-        {
-            for (var i = 0; i < Heap.Count; i++)
-            {
-                var block = Heap[i];
-                if (block == null)
-                {
-                    state.AppendLine($"  [{i}]: <freed>");
-                }
-                else
-                {
-                    state.AppendLine($"  [{i}]: Size {block.Length}");
-                    for (var j = 0; j < block.Length; j++)
-                    {
-                        state.AppendLine($"    [{j}] = {block[j]}");
-                    }
-                }
             }
         }
 

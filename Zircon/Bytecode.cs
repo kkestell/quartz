@@ -10,7 +10,7 @@ public enum Opcode : byte
     Pop = 0x02,
     Dup = 0x03,
     Swap = 0x04,
-    PushNil = 0x05, // New opcode for nil
+    PushNil = 0x05, 
 
     // Arithmetic operations
     Add = 0x10,
@@ -50,11 +50,16 @@ public enum Opcode : byte
     Call = 0x80,
     Return = 0x81,
 
-    // Memory management
-    Alloc = 0x90,  // Allocate heap memory
-    Store = 0x91,  // Store value at memory address + offset
-    Load = 0x92,   // Load value from memory address + offset
-    Free = 0x93,   // Free heap memory
+    // Array Operations
+    NewArray = 0x90,
+    GetElement = 0x91,
+    SetElement = 0x92,
+    ArrayLength = 0x93,
+
+    // Object Operations
+    NewObject = 0xA0,
+    GetProperty = 0xA1,
+    SetProperty = 0xA2,
 
     // VM control
     Halt = 0xFF,
@@ -69,7 +74,7 @@ public static class OpcodeExtensions
         0x02 => Opcode.Pop,
         0x03 => Opcode.Dup,
         0x04 => Opcode.Swap,
-        0x05 => Opcode.PushNil, // Handle new opcode
+        0x05 => Opcode.PushNil,
         0x10 => Opcode.Add,
         0x11 => Opcode.Subtract,
         0x12 => Opcode.Multiply,
@@ -94,10 +99,13 @@ public static class OpcodeExtensions
         0x73 => Opcode.SetGlobal,
         0x80 => Opcode.Call,
         0x81 => Opcode.Return,
-        0x90 => Opcode.Alloc,
-        0x91 => Opcode.Store,
-        0x92 => Opcode.Load,
-        0x93 => Opcode.Free,
+        0x90 => Opcode.NewArray,
+        0x91 => Opcode.GetElement,
+        0x92 => Opcode.SetElement,
+        0x93 => Opcode.ArrayLength,
+        0xA0 => Opcode.NewObject,
+        0xA1 => Opcode.GetProperty,
+        0xA2 => Opcode.SetProperty,
         0xFF => Opcode.Halt,
         _ => throw new IOException($"Unknown opcode: {value:X2}"),
     };
@@ -113,7 +121,9 @@ public static class OpcodeExtensions
         Opcode.SetLocal or
         Opcode.GetGlobal or
         Opcode.SetGlobal or
-        Opcode.Call => true,
+        Opcode.Call or
+        Opcode.GetProperty or // Operands point to string constants for property names
+        Opcode.SetProperty => true,
         _ => false,
     };
 }
@@ -137,11 +147,12 @@ public class Instruction
 // Value types supported by the VM
 public enum ValueType
 {
-    Nil, // New Nil type
+    Nil,
     Number,
     Boolean,
     String,
-    HeapRef, // Reference to heap-allocated memory
+    Array,  // Reference to a GC-managed array
+    Object, // Reference to a GC-managed dictionary
 }
 
 // Runtime value that can be stored on stack or as constant
@@ -163,7 +174,8 @@ public class Value : IEquatable<Value>
     public static Value Number(double value) => new(ValueType.Number, value);
     public static Value Boolean(bool value) => new(ValueType.Boolean, value);
     public static Value Str(string value) => new(ValueType.String, value);
-    public static Value HeapRef(int address) => new(ValueType.HeapRef, address);
+    public static Value Array(Value[] values) => new(ValueType.Array, values);
+    public static Value Object(Dictionary<string, Value> properties) => new(ValueType.Object, properties);
 
     // Type-safe accessors
     public double AsNumber() => Type == ValueType.Number 
@@ -178,9 +190,13 @@ public class Value : IEquatable<Value>
         ? (string)_rawValue! 
         : throw new InvalidOperationException("Value is not a string.");
 
-    public int AsHeapRef() => Type == ValueType.HeapRef 
-        ? (int)_rawValue! 
-        : throw new InvalidOperationException("Value is not a heap reference.");
+    public Value[] AsArray() => Type == ValueType.Array 
+        ? (Value[])_rawValue! 
+        : throw new InvalidOperationException("Value is not an array.");
+        
+    public Dictionary<string, Value> AsObject() => Type == ValueType.Object 
+        ? (Dictionary<string, Value>)_rawValue! 
+        : throw new InvalidOperationException("Value is not an object.");
 
     // Arithmetic operations
     public Value Add(Value other) => 
@@ -253,6 +269,10 @@ public class Value : IEquatable<Value>
     {
         if (other is null) 
             return false;
+            
+        // For reference types (Array, Object), use reference equality.
+        if (Type is ValueType.Array or ValueType.Object)
+            return ReferenceEquals(this, other);
 
         if (Type == ValueType.Nil) 
             return other.Type == ValueType.Nil;
@@ -260,15 +280,21 @@ public class Value : IEquatable<Value>
         if (Type != other.Type)
             return false;
 
-        if (ReferenceEquals(this, other)) 
-            return true;
-
         return _rawValue!.Equals(other._rawValue);
     }
 
     public override bool Equals(object? obj) => Equals(obj as Value);
     public override int GetHashCode() => _rawValue?.GetHashCode() ?? 0;
-    public override string ToString() => Type == ValueType.Nil ? "nil" : _rawValue?.ToString() ?? "";
+    public override string ToString()
+    {
+        return Type switch
+        {
+            ValueType.Nil => "nil",
+            ValueType.Array => $"<array[{AsArray().Length}]>",
+            ValueType.Object => "<object>",
+            _ => _rawValue?.ToString() ?? ""
+        };
+    }
 }
 
 // Function definition containing instructions and metadata
@@ -325,7 +351,7 @@ public class Bytecode
                 0x01 => Value.Number(reader.ReadDouble()),
                 0x02 => Value.Boolean(reader.ReadBoolean()),
                 0x03 => Value.Str(Encoding.UTF8.GetString(reader.ReadBytes(reader.ReadUInt16()))),
-                // Nil is not represented in the constant pool, it's pushed by its own opcode
+                // Complex types like Nil, Array, and Object are created at runtime, not stored in the constant pool.
                 _ => throw new IOException($"Unknown constant type: {typeId:X2}")
             };
             constants.Add(constant);
