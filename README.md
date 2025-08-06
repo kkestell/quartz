@@ -100,8 +100,7 @@ A compiled `.zirc` file has the following binary structure:
             <td><code>0x05</code></td>
             <td>None</td>
             <td>Pushes a <code>nil</code> value onto the stack.</td>
-        </tr>
-        
+        </tr>        
         <tr><td colspan="4"><strong>Arithmetic</strong></td></tr>
         <tr>
             <td><code>Add</code></td>
@@ -138,8 +137,7 @@ A compiled `.zirc` file has the following binary structure:
             <td><code>0x15</code></td>
             <td>None</td>
             <td>Pops a number, negates it, and pushes the result.</td>
-        </tr>
-        
+        </tr>        
         <tr><td colspan="4"><strong>Logical Operations</strong></td></tr>
         <tr>
             <td><code>And</code></td>
@@ -158,8 +156,7 @@ A compiled `.zirc` file has the following binary structure:
             <td><code>0x22</code></td>
             <td>None</td>
             <td>Pops a boolean, inverts it, and pushes the result.</td>
-        </tr>
-        
+        </tr>        
         <tr><td colspan="4"><strong>Comparison Operations</strong></td></tr>
         <tr>
             <td><code>Equal</code></td>
@@ -178,8 +175,7 @@ A compiled `.zirc` file has the following binary structure:
             <td><code>0x32</code></td>
             <td>None</td>
             <td>Pops two numbers, compares them (<code>&lt;</code>), and pushes the boolean result.</td>
-        </tr>
-        
+        </tr>        
         <tr><td colspan="4"><strong>Control Flow</strong></td></tr>
         <tr>
             <td><code>Jump</code></td>
@@ -198,16 +194,14 @@ A compiled `.zirc` file has the following binary structure:
             <td><code>0x42</code></td>
             <td>2-byte address</td>
             <td>Pops a value; if false, jumps to the specified address.</td>
-        </tr>
-        
+        </tr>        
         <tr><td colspan="4"><strong>I/O</strong></td></tr>
         <tr>
             <td><code>Print</code></td>
             <td><code>0x60</code></td>
             <td>None</td>
             <td>Pops a value and prints its string representation to the console.</td>
-        </tr>
-        
+        </tr>        
         <tr><td colspan="4"><strong>Variables</strong></td></tr>
         <tr>
             <td><code>GetLocal</code></td>
@@ -232,8 +226,7 @@ A compiled `.zirc` file has the following binary structure:
             <td><code>0x73</code></td>
             <td>2-byte global index</td>
             <td>Pops a value and assigns it to a global variable.</td>
-        </tr>
-        
+        </tr>        
         <tr><td colspan="4"><strong>Functions</strong></td></tr>
         <tr>
             <td><code>Call</code></td>
@@ -246,8 +239,7 @@ A compiled `.zirc` file has the following binary structure:
             <td><code>0x81</code></td>
             <td>None</td>
             <td>Returns from the current function.</td>
-        </tr>
-        
+        </tr>        
         <tr><td colspan="4"><strong>Array Operations</strong></td></tr>
         <tr>
             <td><code>NewArray</code></td>
@@ -272,8 +264,7 @@ A compiled `.zirc` file has the following binary structure:
             <td><code>0x93</code></td>
             <td>None</td>
             <td>Pops an array and pushes its length.</td>
-        </tr>
-        
+        </tr>        
         <tr><td colspan="4"><strong>Object Operations</strong></td></tr>
         <tr>
             <td><code>NewObject</code></td>
@@ -292,8 +283,7 @@ A compiled `.zirc` file has the following binary structure:
             <td><code>0xA2</code></td>
             <td>2-byte const index</td>
             <td>Pops a value and an object, and sets a property by name.</td>
-        </tr>
-        
+        </tr>        
         <tr><td colspan="4"><strong>VM Control</strong></td></tr>
         <tr>
             <td><code>Halt</code></td>
