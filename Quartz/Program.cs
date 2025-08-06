@@ -5,16 +5,18 @@ public static class Program
 {
     public static void Main(string[] args)
     {
-        // 1. Define the program to compile using the AST.
-        // This is equivalent to:
-        // main() {
-        //   var x = 100;
-        //   if (x > 50) {
-        //     return 1;
-        //   } else {
-        //     return 0;
-        //   }
-        // }
+        // AST
+
+        /*
+        main() {
+          var x = 100;
+          if (x > 50) {
+            return 1;
+          } else {
+            return 0;
+          }
+        }
+        */
         var ast = new List<Statement>
         {
             new FunctionDeclStmt(
@@ -34,13 +36,19 @@ public static class Program
         };
         DebugHelpers.PrintAst(ast);
 
+        // IR
+
         var irGenerator = new IrGenerator(ast);
         var irProgram = irGenerator.Generate();
         DebugHelpers.PrintIr(irProgram);
 
+        // Bytecode
+
         var bytecodeGenerator = new BytecodeGenerator(irProgram);
         var bytecodeBytes = bytecodeGenerator.Generate();
         
+        // Execute
+
         var tempFile = Path.GetTempFileName();
         try
         {
@@ -50,16 +58,11 @@ public static class Program
             DebugHelpers.Disassemble(zirconBytecode);
 
             var vm = new VirtualMachine(zirconBytecode);
-            Console.WriteLine("\n=== Step 4: Executing in Zircon VM ===\n");
             vm.Run();
 
             if (vm.ReturnValue != null)
             {
-                Console.WriteLine($"VM exited with return value: {vm.ReturnValue}");
-            }
-            else
-            {
-                Console.WriteLine("VM exited with no return value.");
+                Console.WriteLine(vm.ReturnValue);
             }
         }
         finally
